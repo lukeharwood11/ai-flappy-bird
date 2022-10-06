@@ -31,6 +31,5 @@ class FlappyBrain:
         Bird brain which implements the genetic algorithm
         """
 
-
     def update(self):
         pass
