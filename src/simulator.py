@@ -2,7 +2,7 @@ import numpy as np
 import pygame
 from time import time
 from utils import calculate_fps
-from flappy import FlappyBird
+from flappy import FlappyBird, FlappyFlock, FlappyBrain
 from constants import WIDTH_BETWEEN_PIPES, HEIGHT_BETWEEN_PIPES, STARTING_RANGE, \
     SCREEN_SIZE, MAP_MOVEMENT, RANGE_INCREMENT, S_HEIGHT, S_WIDTH, SCORE_Y, SCORE_SPACING, \
     GAME_HEIGHT, PIPE_HEIGHT
@@ -112,6 +112,38 @@ class Game:
         pass
 
 
+class GeneticGame:
+
+    def __init__(self, size, mini_batch_size):
+        """
+        Model for the flappy bird game
+        """
+        # Every 10 levels increase the starting range
+        self.pipe_range = STARTING_RANGE
+        self.score = 0
+        self.height = S_WIDTH
+        self.width = S_HEIGHT
+        self.flock = FlappyFlock(size, mini_batch_size)
+        self.pipe_manager = PipeManager(S_WIDTH, S_HEIGHT, self.pipe_range)
+
+    def init(self):
+        pass
+
+    def update_state(self, keys_pressed):
+        self.flock.update(keys_pressed, self)
+        return True
+
+    def reset(self):
+        self.pipe_range = STARTING_RANGE
+        self.score = 0
+        self.height = S_WIDTH
+        self.width = S_HEIGHT
+        self.pipe_manager = PipeManager(S_WIDTH, S_HEIGHT, self.pipe_range)
+
+    def handle_close_event(self):
+        pass
+
+
 class PipeManager:
 
     def __init__(self, width, height, starting_range, green=True):
@@ -169,7 +201,7 @@ class PipeManager:
         if c_upper is not None \
                 or c_lower is not None \
                 or bird.rect.y >= GAME_HEIGHT \
-                    or (pipe.in_between(bird_x) and bird.rect.y < pipe.upper_rect.y + PIPE_HEIGHT):
+                or (pipe.in_between(bird_x) and bird.rect.y < pipe.upper_rect.y + PIPE_HEIGHT):
             return True
         return False
 
@@ -252,6 +284,20 @@ class GameBoard:
         window.blit(ground, (-x, self.bg.get_height() - ground.get_height()))
         self.score_board.render(window, model.score)
         model.bird.render(window)
+
+
+class GeneticGameBoard(GameBoard):
+
+    def __init__(self, board_width, day=True):
+        super().__init__(board_width, day=day)
+
+    def render(self, window, model, game_over):
+        window.blit(self.bg, (0, 0))
+        ground, x = self.ground.step()
+        model.pipe_manager.render(window)
+        window.blit(ground, (-x, self.bg.get_height() - ground.get_height()))
+        self.score_board.render(window, model.score)
+        model.flock.render(window)
 
 
 class Ground:

@@ -1,6 +1,6 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 GRAVITY = 1
-THRUST = 5
+THRUST = 8
 HEIGHT_BETWEEN_PIPES = 100
 WIDTH_BETWEEN_PIPES = 160
 FPS = 60

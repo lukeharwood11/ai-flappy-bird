@@ -5,7 +5,8 @@ from constants import SCREEN_SIZE, FPS
 import simulator
 import utils
 
-def main():
+
+def regular():
     pygame.init()
     window = pygame.display.set_mode(SCREEN_SIZE)
     brain = flappy.UserFlappyBrain()
@@ -16,5 +17,14 @@ def main():
     sim.start()
 
 
+def genetic():
+    pygame.init()
+    window = pygame.display.set_mode(SCREEN_SIZE)
+    model = simulator.GeneticGame(100, 20)
+    display = simulator.GeneticGameBoard(SCREEN_SIZE[0], True)
+    sim = simulator.Simulator(model, display, window, fps=FPS)
+    sim.start()
+
+
 if __name__ == "__main__":
-    main()
+    genetic()

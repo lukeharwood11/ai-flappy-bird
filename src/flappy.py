@@ -24,7 +24,7 @@ class CollisionSet:
         return self.data[index] == 1
 
     def full_collision(self):
-        return self.data == np.ones(len(self.data))
+        return np.all(self.data == np.ones(len(self.data)))
 
     def clear(self, mini_batch_size):
         """
@@ -45,13 +45,46 @@ class FlappyFlock:
         self.flock = []
         # mini-batch
         self.birds = []
+        self.score_index = 0
+        self.scores = np.zeros(size)
 
         self.mini_batch_index = 0
+        self.generate_flappy_birds()
+        self.select_batch()
 
-    def update(self, inputs, keys_pressed):
-        for bird in self.birds:
+    def update(self, keys_pressed, game):
+        game.pipe_manager.update(game.score)
+        current_pipe = game.pipe_manager.get_current_pipe()
+        if self.collision_set.full_collision():
+            self.reset()
+            game.reset()
+
+        scored = False
+        for i, bird in enumerate(self.birds):
             if bird.rect.right >= 0:
+                inputs = self.handle_inputs(current_pipe, bird)
                 bird.update(inputs, keys_pressed)
+                bird.dead = bird.dead or game.pipe_manager.handle_collision(bird)
+                if bird.dead:
+                    self.collision_set.set_collision(i)
+                scored = scored or self.handle_score(current_pipe, bird)
+        game.score = game.score + (1 if scored else 0)
+
+    def handle_inputs(self, nearest_pipe, bird):
+        distance = nearest_pipe.upper_rect.x - bird.rect.x
+        bird_height = bird.rect.centery
+        upper = nearest_pipe.upper_rect.bottom
+        lower = nearest_pipe.lower_rect.top
+        return np.array([distance, bird_height, upper, lower])
+
+    def handle_score(self, current_pipe, bird):
+        if bird.rect.center >= current_pipe.upper_rect.center and current_pipe != bird.last_pipe:
+            bird.last_pipe = current_pipe
+            bird.value += 1
+            if not current_pipe.passed:
+                current_pipe.passed = True
+                return True
+        return False
 
     def render(self, window):
         for bird in self.birds:
@@ -59,14 +92,36 @@ class FlappyFlock:
                 bird.render(window)
 
     def reset(self):
-        pass
+        for bird in self.birds:
+            self.scores[self.score_index] = bird.value
+            self.score_index += 1
+            bird.reset()
+        if self.mini_batch_index >= self.size:
+            self.reset_flock()
+        self.select_batch()
+
+    def reset_flock(self):
+        i = np.argsort(self.scores)[-2:]
+        parent1, parent2 = self.flock[i[0]], self.flock[i[0]]
+        print(self.scores[i[0]], self.scores[i[1]])
+        brains = parent1.brain.cross_over_mutation(parent2.brain, self.size)
+        for brain, bird in zip(brains, self.flock):
+            bird.reset()
+            bird.brain = brain
+        self.score_index = 0
+        self.scores = np.zeros(self.size)
+        self.mini_batch_index = 0
 
     def select_batch(self):
         self.birds = self.flock[self.mini_batch_index: min(self.mini_batch_index + self.mini_batch, len(self.flock))]
+        self.mini_batch_index += self.mini_batch
         self.collision_set.clear(len(self.birds))
 
     def generate_flappy_birds(self):
-        pass
+        brains = FlappyBrain.generate_drivers(self.size, .5, False)
+        for brain in brains:
+            self.flock.append(FlappyBird(brain))
+
 
 class FlappyBird:
 
@@ -81,6 +136,7 @@ class FlappyBird:
         self.counter = 0
         self.velocity = 0
         self.value = 0
+        self.last_pipe = None
         self.dead = False
 
     @staticmethod
@@ -102,6 +158,7 @@ class FlappyBird:
         self.counter = 0
         self.velocity = 0
         self.value = 0
+        self.dead = False
 
     def score(self, scored):
         if scored:
