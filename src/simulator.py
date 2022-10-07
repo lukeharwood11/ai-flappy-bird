@@ -3,20 +3,24 @@ import pygame
 from time import time
 from utils import calculate_fps
 from flappy import FlappyBird
-from glob import WIDTH_BETWEEN_PIPES, HEIGHT_BETWEEN_PIPES, STARTING_RANGE, SCREEN_SIZE, MAP_MOVEMENT, RANGE_INCREMENT
+from constants import WIDTH_BETWEEN_PIPES, HEIGHT_BETWEEN_PIPES, STARTING_RANGE, \
+    SCREEN_SIZE, MAP_MOVEMENT, RANGE_INCREMENT, S_HEIGHT, S_WIDTH, SCORE_Y, SCORE_SPACING, \
+    GAME_HEIGHT, PIPE_HEIGHT
 from position import Position
 
 
 class Simulator:
 
-    def __init__(self, model, fps=None):
+    def __init__(self, model, display, window, fps=None):
         self.caption = "AI Flappy Bird!"
         self.fps = fps
         self.clock = pygame.time.Clock()
+        self.display = display
         self.model = model
         self.current_timestamp = time()
         self.calc_fps = 0
-        self.window = pygame.display.set_mode(SCREEN_SIZE)
+        self.window = window
+        self.game_over = False
 
     def start(self):
         run = True
@@ -35,14 +39,18 @@ class Simulator:
             t = self.current_timestamp
             self.current_timestamp = time()
             if t is not None:
-                self.calc_fps = calculate_fps(self.current_timestamp - t)
+                self.calc_fps = calculate_fps(max(self.current_timestamp - t, 1))
             keys_pressed = pygame.key.get_pressed()
-            run = self.model.update_state(keys_pressed) or run
-            self.model.print_current_state()
+            run = self.model.update_state(keys_pressed) and run
             self.update_display()
+        pygame.quit()
 
     def update_display(self):
+        self.display.render(self.window, self.model, self.game_over)
         pygame.display.update()
+
+    def reset(self):
+        pass
 
     def quit(self):
         pass
@@ -50,33 +58,58 @@ class Simulator:
 
 class Game:
 
-    def __init__(self, width, height, bird):
+    def __init__(self, bird):
         """
         Model for the flappy bird game
         """
         # Every 10 levels increase the starting range
         self.pipe_range = STARTING_RANGE
         self.score = 0
-        self.pipes = []
-        self.height = height
-        self.width = width
+        self.height = S_WIDTH
+        self.width = S_HEIGHT
         self.bird = bird
+        self.pipe_manager = PipeManager(S_WIDTH, S_HEIGHT, self.pipe_range)
 
     def init(self):
-        self.pipes.append(PipeSet.generate_set(self.width, self.height, self.pipe_range))
+        pass
 
     def update_state(self, keys_pressed):
-        for pipe in self.pipes:
-            pipe.update()
+        self.pipe_manager.update(self.score)
+        self.bird.score(self.handle_score())
+        collision = self.handle_collision()
+        self.bird.dead = collision
+        inputs = self.get_inputs()
+        self.bird.update(inputs, keys_pressed)
+        if collision:
+            self.reset()
+        return True
+
+    def get_inputs(self):
+        nearest_pipe = self.pipe_manager.get_current_pipe()
+        assert nearest_pipe is not None, "Nearest Pipe is None"
+        distance = nearest_pipe.upper_rect.x - self.bird.rect.x
+        bird_height = self.bird.rect.centery
+        upper = nearest_pipe.upper_rect.bottom
+        lower = nearest_pipe.lower_rect.top
+        return np.array([distance, bird_height, upper, lower])
 
     def compare_position(self):
         pass
 
-    def score(self):
-        self.score += 1
+    def handle_score(self):
+        pipe = self.pipe_manager.get_current_pipe()
+        if self.bird.rect.x >= pipe.x and not pipe.passed:
+            pipe.passed = True
+            self.score += 1
+
+    def handle_collision(self):
+        return self.pipe_manager.handle_collision(self.bird)
 
     def reset(self):
         self.bird.reset()
+
+    def handle_close_event(self):
+        pass
 
 
 class PipeManager:
@@ -91,6 +124,11 @@ class PipeManager:
         self.range = starting_range
         self.green = green
         self.generate_pipes(0)
+        self.init()
+
+    def render(self, window):
+        for pipe in self.pipes:
+            pipe.render(window)
 
     def init(self):
         s = PipeSet.generate_set(0, 0, 0)
@@ -98,8 +136,9 @@ class PipeManager:
         self.bottom_mask = pygame.mask.from_surface(s.bottom_pipe)
 
     def generate_pipes(self, score):
-        if score % 10 and score != 0:
+        if score % 10 == 0 and score != 0:
             self.range += RANGE_INCREMENT
+            self.range = min(self.range, 1)
         self.pipes.append(PipeSet.generate_set(self.width, self.height, self.range))
         self.num_pipes += 1
 
@@ -107,21 +146,38 @@ class PipeManager:
         # check the last pipe to see if we need to generate another set
         if self.width - self.pipes[self.num_pipes - 1].x >= WIDTH_BETWEEN_PIPES:
             self.generate_pipes(score)
-        for pipe in self.pipes:
-            pipe.update()
+        delete = False
+        for i, pipe in enumerate(self.pipes):
+            delete = pipe.update() or delete
+        if delete:
+            self.num_pipes -= 1
+            self.pipes.pop(0)
 
-    def check_for_collision(self, bird):
+    def get_current_pipe(self):
+        return self.pipes[0]
+
+    def handle_collision(self, bird):
         bird_x = bird.current_image.get_width()
         pipe = self.find_closest_pipe(bird_x)
+        bird_mask = pygame.mask.from_surface(bird.current_image)
         # check mask
         # else check if height is above the cutoff or below the cutoff
-        pass
-
+        offset = (bird.rect.x - pipe.upper_rect.x), (bird.rect.y - pipe.upper_rect.y)
+        c_upper = self.top_mask.overlap(bird_mask, offset)
+        offset = (bird.rect.x - pipe.lower_rect.x), (bird.rect.y - pipe.lower_rect.y)
+        c_lower = self.bottom_mask.overlap(bird_mask, offset)
+        if c_upper is not None \
+                or c_lower is not None \
+                or bird.rect.y >= GAME_HEIGHT \
+                    or (pipe.in_between(bird_x) and bird.rect.y < pipe.upper_rect.y + PIPE_HEIGHT):
+            return True
+        return False
 
     def find_closest_pipe(self, bird_x):
         for pipe in self.pipes:
             if bird_x < pipe.x or pipe.in_between(bird_x):
                 return pipe
+        return None
 
 
 class PipeSet:
@@ -144,15 +200,20 @@ class PipeSet:
             self.bottom_pipe.get_width(),
             self.bottom_pipe.get_height()
         )
-
-    def create(self):
-        pass
+        self.passed = False
 
     def update(self):
-        pass
+        delete = False
+        self.x -= MAP_MOVEMENT
+        self.upper_rect.move_ip(-MAP_MOVEMENT, 0)
+        self.lower_rect.move_ip(-MAP_MOVEMENT, 0)
+        if self.x + self.lower_rect.width <= 0:
+            delete = True
+        return delete
 
     def render(self, window):
-        pass
+        window.blit(self.bottom_pipe, self.lower_rect)
+        window.blit(self.top_pipe, self.upper_rect)
 
     def in_between(self, x):
         x2 = self.x + self.bottom_pipe.get_width()
@@ -168,7 +229,7 @@ class PipeSet:
         x = width
         top_pipe = (.5 * height) + r - (.5 * HEIGHT_BETWEEN_PIPES)
         bottom_pipe = (.5 * height) + r + (.5 * HEIGHT_BETWEEN_PIPES)
-        return PipeSet(x, top_pipe, bottom_pipe, upper=True)
+        return PipeSet(x, top_pipe, bottom_pipe)
 
 
 class GameBoard:
@@ -181,12 +242,16 @@ class GameBoard:
         self.bg = self.background_day if day else self.background_night
         self.ground = Ground(board_width)
         self.game_height = self.bg.get_height() - self.ground.ground.get_width()
+        self.score_board = ScoreBoard(0, 0)
 
-    def render(self, window, game_over):
+    def render(self, window, model, game_over):
         size = window.get_size()
         window.blit(self.bg, (0, 0))
         ground, x = self.ground.step()
+        model.pipe_manager.render(window)
         window.blit(ground, (-x, self.bg.get_height() - ground.get_height()))
+        self.score_board.render(window, model.score)
+        model.bird.render(window)
 
 
 class Ground:
@@ -197,15 +262,15 @@ class Ground:
         self.ground = pygame.image.load("./assets/sprites/base.png").convert()
 
     def step(self):
-        if self.x + MAP_MOVEMENT >= (self.ground.get_width() - self.board_width):
+        if self.x + MAP_MOVEMENT >= (self.ground.get_width() - self.board_width) - 10:
             self.x = 0
         self.x += MAP_MOVEMENT
-        return self.ground, -self.x
+        return self.ground, self.x
 
 
 class ScoreBoard:
 
-    def __init__(self, x, y, scale=1, height=0, width=0):
+    def __init__(self, x, y, scale=1):
         """
         :param x:
         :param y:
@@ -213,8 +278,6 @@ class ScoreBoard:
         :param height:
         :param width:
         """
-        self.width = width
-        self.height = height
         self.scale = scale
         self.x = x
         self.y = y
@@ -223,17 +286,21 @@ class ScoreBoard:
     def init_number_images(self):
         images = []
         for i in range(10):
-            image = pygame.image.load("{}.png".format(i)).convert_alpha()
+            image = pygame.image.load("./assets/sprites/{}.png".format(i)).convert_alpha()
             size = image.get_size()
             images.append(pygame.transform.smoothscale(image, (size[0] * self.scale, size[1] * self.scale)))
         return images
 
     def render(self, window, score):
-        offset = self.x
         images = self.get_images(score)
+        t_width = 0
         for image in images:
-            window.blit(image, (offset, self.y))
-            offset += image.get_width() + 5
+            t_width += image.get_width()
+        t_width += (SCORE_SPACING * len(images))
+        offset = (S_WIDTH - t_width) * .5
+        for image in images:
+            window.blit(image, (offset, SCORE_Y))
+            offset += image.get_width() + SCORE_SPACING
 
     def get_images(self, score):
         score = str(score)

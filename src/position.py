@@ -1,5 +1,5 @@
 import numpy as np
-from glob import GRAVITY
+from constants import GRAVITY
 
 
 class Position:
