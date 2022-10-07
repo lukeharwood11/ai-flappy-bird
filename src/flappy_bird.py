@@ -20,7 +20,7 @@ def regular():
 def genetic():
     pygame.init()
     window = pygame.display.set_mode(SCREEN_SIZE)
-    model = simulator.GeneticGame(100, 20)
+    model = simulator.GeneticGame(5000, 1000)
     display = simulator.GeneticGameBoard(SCREEN_SIZE[0], True)
     sim = simulator.Simulator(model, display, window, fps=FPS)
     sim.start()

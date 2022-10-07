@@ -5,7 +5,7 @@ from utils import calculate_fps
 from flappy import FlappyBird, FlappyFlock, FlappyBrain
 from constants import WIDTH_BETWEEN_PIPES, HEIGHT_BETWEEN_PIPES, STARTING_RANGE, \
     SCREEN_SIZE, MAP_MOVEMENT, RANGE_INCREMENT, S_HEIGHT, S_WIDTH, SCORE_Y, SCORE_SPACING, \
-    GAME_HEIGHT, PIPE_HEIGHT
+    GAME_HEIGHT, PIPE_HEIGHT, MAX_RANGE
 from position import Position
 
 
@@ -163,15 +163,15 @@ class PipeManager:
             pipe.render(window)
 
     def init(self):
-        s = PipeSet.generate_set(0, 0, 0)
+        s = PipeSet.generate_set(0, 0)
         self.top_mask = pygame.mask.from_surface(s.top_pipe)
         self.bottom_mask = pygame.mask.from_surface(s.bottom_pipe)
 
     def generate_pipes(self, score):
         if score % 10 == 0 and score != 0:
             self.range += RANGE_INCREMENT
-            self.range = min(self.range, 1)
-        self.pipes.append(PipeSet.generate_set(self.width, self.height, self.range))
+            self.range = min(self.range, MAX_RANGE)
+        self.pipes.append(PipeSet.generate_set(self.width, self.range))
         self.num_pipes += 1
 
     def update(self, score):
@@ -252,15 +252,15 @@ class PipeSet:
         return x2 > x > self.x
 
     @staticmethod
-    def generate_set(width, height, pipe_range):
+    def generate_set(width, pipe_range):
         """
         :return: a top Pipe and a lower pipe
         """
         r = np.random.rand() * pipe_range
-        r = (-r if np.random.rand() >= .5 else r) * (.4 * height)
+        r = (-r if np.random.rand() >= .4 else r) * (.4 * GAME_HEIGHT)
         x = width
-        top_pipe = (.5 * height) + r - (.5 * HEIGHT_BETWEEN_PIPES)
-        bottom_pipe = (.5 * height) + r + (.5 * HEIGHT_BETWEEN_PIPES)
+        top_pipe = (.5 * GAME_HEIGHT) + r - (.5 * HEIGHT_BETWEEN_PIPES)
+        bottom_pipe = (.5 * GAME_HEIGHT) + r + (.5 * HEIGHT_BETWEEN_PIPES)
         return PipeSet(x, top_pipe, bottom_pipe)
 
 
