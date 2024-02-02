@@ -1,5 +1,5 @@
 # AI Flappy Bird
-Flappy Bird built in python with a genetic algorithm to beat it
+Flappy Bird built in python with a genetic algorithm to beat it.
 
 ## Installation
 
@@ -11,4 +11,5 @@ Flappy Bird built in python with a genetic algorithm to beat it
     - Linux/Mac: `source ./venv/bin/activate`
 3. Install dependencies: `pip install -r requirements.txt`
 4. Run pygame app: `cd src && python main.py`
+
 
