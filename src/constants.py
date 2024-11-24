@@ -3,13 +3,13 @@ GRAVITY = 1
 THRUST = 8
 HEIGHT_BETWEEN_PIPES = 100
 WIDTH_BETWEEN_PIPES = 160
-FPS = None
+FPS = 120
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-STARTING_RANGE = .30  # 30% of change between the center line for pipe height
-RANGE_INCREMENT = .1
-MAX_RANGE = .8
+STARTING_RANGE = 0.3  # 30% of change between the center line for pipe height
+RANGE_INCREMENT = 0.1
+MAX_RANGE = 0.8
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -1,12 +1,19 @@
-import os
-
 import numpy as np
-from pygame import K_UP, K_SPACE
 import pygame
 import utils
-from position import Position
-from constants import FLAP_SPEED, SCREEN_SIZE, THRUST, GRAVITY, GAME_HEIGHT, MAP_MOVEMENT, MODEL_INPUTS
+import typing
+from brain import BaseBrain, BaseGeneticBrain
+from constants import (
+    FLAP_SPEED,
+    SCREEN_SIZE,
+    THRUST,
+    GRAVITY,
+    GAME_HEIGHT,
+    MAP_MOVEMENT,
+)
 
+if typing.TYPE_CHECKING:
+    import simulator
 
 class CollisionSet:
 
@@ -37,24 +44,29 @@ class CollisionSet:
 
 class FlappyFlock:
 
-    def __init__(self, size, mini_batch):
-        self.size = size
-        self.mini_batch = mini_batch
-        self.collision_set = CollisionSet(mini_batch)
+    def __init__(self, size: int, mini_batch: int, brain_type: type[BaseGeneticBrain]):
+        self.size: int = size
+        self.mini_batch: int = mini_batch
+        self.collision_set: CollisionSet = CollisionSet(mini_batch)
         # whole group of birds
-        self.flock = []
+        self.flock: list[FlappyBird] = []
         # mini-batch
-        self.birds = []
-        self.score_index = 0
-        self.scores = np.zeros(size)
+        self.birds: list[FlappyBird] = []
+        self.score_index: int = 0
+        self.scores: np.array = np.zeros(size)
 
-        self.mini_batch_index = 0
+        # private vars
+        self._brain_type: type[BaseGeneticBrain] = brain_type
+
+        self.mini_batch_index: int = 0
+        # initialize flock
         self.generate_flappy_birds()
+        # select mini-batch
         self.select_batch()
 
-    def update(self, keys_pressed, game):
+    def update(self, keys_pressed: list[bool], game: "simulator.Game"):
         game.pipe_manager.update(game.score)
-        current_pipe = game.pipe_manager.get_current_pipe()
+        current_pipe: simulator.Pipe = game.pipe_manager.get_current_pipe()
         if self.collision_set.full_collision():
             self.reset()
             game.reset()
@@ -71,14 +83,17 @@ class FlappyFlock:
         game.score = game.score + (1 if scored else 0)
 
     def handle_inputs(self, nearest_pipe, bird):
-        distance = nearest_pipe.upper_rect.x - bird.rect.x
-        bird_height = bird.rect.centery
-        upper = nearest_pipe.upper_rect.bottom
-        lower = nearest_pipe.lower_rect.top
+        distance: float = nearest_pipe.upper_rect.x - bird.rect.x
+        bird_height: float = bird.rect.centery
+        upper: float = nearest_pipe.upper_rect.bottom
+        lower: float = nearest_pipe.lower_rect.top
         return np.array([distance, bird_height, upper, lower])
 
     def handle_score(self, current_pipe, bird):
-        if bird.rect.center >= current_pipe.upper_rect.center and current_pipe != bird.last_pipe:
+        if (
+            bird.rect.center >= current_pipe.upper_rect.center
+            and current_pipe != bird.last_pipe
+        ):
             bird.last_pipe = current_pipe
             bird.value += 1
             if not current_pipe.passed:
@@ -102,8 +117,9 @@ class FlappyFlock:
 
     def reset_flock(self):
         i = np.argsort(self.scores)[-2:]
-        parent1, parent2 = self.flock[i[0]], self.flock[i[0]]
-        print(self.scores[i[0]], self.scores[i[1]])
+        parent1 = typing.cast(FlappyBird, self.flock[i[0]])
+        parent2 = typing.cast(FlappyBird, self.flock[i[1]])
+        # print(self.scores[i[0]], self.scores[i[1]])
         brains = parent1.brain.cross_over_mutation(parent2.brain, self.size)
         for brain, bird in zip(brains, self.flock):
             bird.reset()
@@ -113,48 +129,59 @@ class FlappyFlock:
         self.mini_batch_index = 0
 
     def select_batch(self):
-        self.birds = self.flock[self.mini_batch_index: min(self.mini_batch_index + self.mini_batch, len(self.flock))]
+        self.birds = self.flock[
+            self.mini_batch_index : min(
+                self.mini_batch_index + self.mini_batch, len(self.flock)
+            )
+        ]
         self.mini_batch_index += self.mini_batch
         self.collision_set.clear(len(self.birds))
 
     def generate_flappy_birds(self):
-        brains = FlappyBrain.generate_drivers(self.size, .5, False)
+        """Must generate genetic brains for the flock"""
+        brains: list[BaseGeneticBrain] = self._brain_type.generate_brains(self.size, 0.5, False)
         for brain in brains:
             self.flock.append(FlappyBird(brain))
 
-
 class FlappyBird:
 
-    def __init__(self, brain):
-        self.images = FlappyBird.init_images()
-        self.current_image = self.images[0]
-        self.image_index = 0
-        self.brain = brain
-        self.rect = pygame.Rect(.2 * SCREEN_SIZE[0], .6 * SCREEN_SIZE[1],
-                                self.current_image.get_width(),
-                                self.current_image.get_height())
-        self.counter = 0
-        self.velocity = 0
-        self.value = 0
-        self.last_pipe = None
-        self.dead = False
+    def __init__(self, brain: BaseBrain):
+        self.images: list[pygame.Surface] = FlappyBird.init_images()
+        self.current_image: pygame.Surface = self.images[0]
+        self.image_index: int = 0
+        self.brain: BaseBrain = brain
+        self.rect: pygame.Rect = pygame.Rect(
+            0.2 * SCREEN_SIZE[0],
+            0.4 * SCREEN_SIZE[1],
+            self.current_image.get_width(),
+            self.current_image.get_height(),
+        )
+        self.counter: int = 0
+        self.velocity: float = 0
+        self.value: int = 0
+        self.last_pipe: simulator.Pipe | None = None
+        self.dead: bool = False
 
     @staticmethod
     def init_images():
-        up = pygame.image.load("./assets/sprites/yellowbird-upflap.png").convert_alpha()
-        mid = pygame.image.load("./assets/sprites/yellowbird-midflap.png").convert_alpha()
-        down = pygame.image.load("./assets/sprites/yellowbird-downflap.png").convert_alpha()
+        up = pygame.image.load("./src/assets/sprites/yellowbird-upflap.png").convert_alpha()
+        mid = pygame.image.load(
+            "./src/assets/sprites/yellowbird-midflap.png"
+        ).convert_alpha()
+        down = pygame.image.load(
+            "./src/assets/sprites/yellowbird-downflap.png"
+        ).convert_alpha()
         return [up, mid, down, mid]
-
-    def spawn(self):
-        pass
 
     def reset(self):
         self.current_image = self.images[0]
         self.image_index = 0
-        self.rect = pygame.Rect(.2 * SCREEN_SIZE[0], .6 * SCREEN_SIZE[1],
-                                self.current_image.get_width(),
-                                self.current_image.get_height())
+        self.rect = pygame.Rect(
+            0.2 * SCREEN_SIZE[0],
+            0.4 * SCREEN_SIZE[1],
+            self.current_image.get_width(),
+            self.current_image.get_height(),
+        )
         self.counter = 0
         self.velocity = 0
         self.value = 0
@@ -174,8 +201,12 @@ class FlappyBird:
             self.velocity += GRAVITY
         self.update_pos()
         if self.counter % FLAP_SPEED == 0 and not self.dead:
-            self.image_index = 0 if self.image_index + 1 >= len(self.images) else self.image_index + 1
-            self.current_image = utils.rot_center(self.images[self.image_index], -self.velocity * 3)
+            self.image_index = (
+                0 if self.image_index + 1 >= len(self.images) else self.image_index + 1
+            )
+            self.current_image = utils.rot_center(
+                self.images[self.image_index], -self.velocity * 3
+            )
 
     def update_pos(self):
         if self.rect.y < GAME_HEIGHT:
@@ -185,138 +216,3 @@ class FlappyBird:
 
     def render(self, window):
         window.blit(self.current_image, self.rect)
-
-
-class UserFlappyBrain:
-
-    def __init__(self):
-        self.name = "User Brain"
-
-    def step(self, inputs, keys_pressed):
-        if keys_pressed[K_SPACE] or keys_pressed[K_UP]:
-            return True
-        return False
-
-
-class FlappyBrain:
-
-    def __init__(self, driver_id, epsilon):
-        # weight initialization range of [-1.5, 1.5)
-        self.w1 = 3 * np.random.random((MODEL_INPUTS, 16)) - 1.5
-        self.w2 = 3 * np.random.random((16, 8)) - 1.5
-        self.w3 = 3 * np.random.random((8, 2)) - 1.5
-        self.driver_id = str(driver_id)
-        self.epsilon = epsilon
-
-    def forward(self, input_arr: np.array):
-        # input shape is (1, num_input)
-        pass1 = np.matmul(input_arr, self.w1)  # pass1 has shape of (1, 32)
-        pass2 = np.matmul(pass1, self.w2)  # pass2 has shape of (1, 16)
-        pass3 = np.matmul(pass2, self.w3)  # pass3 has shape of (1, num_outputs)
-        return np.tanh(pass3)  # shape is still (1, num_outputs)
-
-    def step(self, inputs, keys_pressed):
-        """
-        - Given input from the simulation make a decision
-        :param wall_collision: whether the car collided with the wall
-        :param reward_collision: whether the car collided with a reward
-        :param inputs: sensor input as a numpy array
-        :param keys_pressed: a map of pressed keys
-        :return direction: int [0 - num_outputs)
-        """
-        return bool(np.argmax(self.forward(inputs)))
-
-    def cross_over_mutation(self, other, total_batch_size):
-        """
-        1. cross over self and other
-        2. generate {total_batch_size - 2 (self and other)} number of mutations
-        3. return the list of drivers as a numpy array, with the first two being the parents
-        :param other:
-        :return:
-        """
-        child_driver = self.cross_over(other)
-        mutations = child_driver.mutate(total_batch_size - 2)
-        return np.array([self, other] + mutations)
-
-    def cross_over(self, other):
-        """
-        Single point crossover
-        :param other:
-        :return:
-        """
-        child_driver = FlappyBrain("({} & {})".format(self.driver_id, other.driver_id), self.epsilon)
-        cross_over_point = np.random.randint(self.w1.shape[1])
-        child_driver.w1 = np.hstack((self.w1[:, :cross_over_point], other.w1[:, cross_over_point:]))
-        cross_over_point = np.random.randint(self.w2.shape[1])
-        child_driver.w2 = np.hstack((self.w2[:, :cross_over_point], other.w2[:, cross_over_point:]))
-        cross_over_point = np.random.randint(self.w3.shape[1])
-        child_driver.w3 = np.hstack((self.w3[:, :cross_over_point], other.w3[:, cross_over_point:]))
-        return child_driver
-
-    def mutate(self, num_mutations):
-        """
-        :param num_mutations: the number of mutations to create
-        :return: a list of FlappyBrain mutations
-        """
-        mutations = []
-        for i in range(num_mutations):
-            mutation = FlappyBrain(driver_id="{}_{}".format(self.driver_id, i), epsilon=self.epsilon)
-            mutation_arr = self.generate_mutation_arr()  # generate mutations and masks
-            # read following as add mutations to self.w1 at the positions where the mask is less than epsilon
-            mutation.w1 = self.w1 + mutation_arr[0][0] * (mutation_arr[0][1] < self.epsilon)
-            mutation.w2 = self.w2 + mutation_arr[1][0] * (mutation_arr[1][1] < self.epsilon)
-            mutation.w3 = self.w3 + mutation_arr[2][0] * (mutation_arr[2][1] < self.epsilon)
-            mutations.append(mutation)
-        return mutations
-
-    def generate_mutation_arr(self):
-        """
-        :return: list([(mutation array, mask array), ...])
-        """
-        ret = []
-        shapes = [self.w1.shape, self.w2.shape, self.w3.shape]
-        for i in shapes:
-            # range = number of layers
-            ret.append((np.random.random(i) - .5, np.random.random(i)))
-        return ret
-
-    @staticmethod
-    def generate_drivers(num_drivers, epsilon, load_latest=False):
-        """
-        create a list of random Drivers
-        :param load_latest:
-        :param epsilon:
-        :param num_drivers:
-        :return:
-        """
-        if load_latest:
-            parent = FlappyBrain(driver_id=0, epsilon=epsilon)
-            parent.load_model(os.path.join("assets", "models"))
-            mutations = parent.mutate(num_drivers - 1)
-            return np.array([parent] + mutations)
-        return np.array([FlappyBrain(driver_id=identifier, epsilon=epsilon)
-                         for identifier in range(num_drivers)])
-
-    def save_model(self, path):
-        """
-        - Save the brain of the agent to some file (or don't)
-        :param path: the path to the model
-        :return: None
-        """
-        path_name = os.path.join(path, "latest_genetic")
-        if not os.path.exists(path_name):
-            os.mkdir(path_name)
-        np.save(os.path.join(path_name, "w1"), self.w1)
-        np.save(os.path.join(path_name, "w2"), self.w2)
-        np.save(os.path.join(path_name, "w3"), self.w3)
-
-    def load_model(self, path):
-        """
-        - Load the brain of the agent from some file (or don't)
-        :param path: the path to the model
-        :return: None
-        """
-        path_name = os.path.join(path, "latest_genetic")
-        self.w1 = np.load(os.path.join(path_name, "w1.npy"))
-        self.w2 = np.load(os.path.join(path_name, "w2.npy"))
-        self.w3 = np.load(os.path.join(path_name, "w3.npy"))
