@@ -85,11 +85,11 @@ class MyCustomBrain(BaseGeneticBrain):
         ...
 
     @staticmethod
-    def generate_brains(num_brains: int, epsilon: float, load_latest: bool = False) -> np.array:
+    def generate_brains(num_brains: int, epsilon: float, load_latest: bool = False) -> list[MyCustomBrain]:
         """
         Generate initial population
         """
-        return [MyCustomBrain() for _ in range(num_brains)]
+        ...
 ```
 
 3. Modify `main.py` to use your custom brain:

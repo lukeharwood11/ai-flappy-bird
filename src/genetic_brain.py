@@ -98,12 +98,10 @@ class FlappyBrain(BaseGeneticBrain):
             parent.load_model(os.path.join("assets", "models"))
             mutations = parent.mutate(num_brains - 1)
             return np.array([parent] + mutations)
-        return np.array(
-            [
-                FlappyBrain(driver_id=identifier, epsilon=epsilon)
-                for identifier in range(num_brains)
-            ]
-        )
+        return [
+            FlappyBrain(driver_id=identifier, epsilon=epsilon)
+            for identifier in range(num_brains)
+        ]
 
     def save_model(self, path):
         """

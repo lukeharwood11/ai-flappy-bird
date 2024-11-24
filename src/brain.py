@@ -25,7 +25,7 @@ class BaseGeneticBrain(BaseBrain):
     @abstractmethod
     def generate_brains(
         num_brains: int, epsilon: float, load_latest: bool = False
-    ) -> np.array:
+    ) -> list[BaseGeneticBrain]:
         pass
 
 
