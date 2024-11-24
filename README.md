@@ -1,6 +1,8 @@
 # AI Flappy Bird
 A Python implementation of Flappy Bird with both manual play and genetic algorithm AI capabilities.
 
+![Flappy Gif](./img/FlappyGIF.gif)
+
 ## Features
 - Classic Flappy Bird gameplay
 - Genetic algorithm AI that learns to play the game
