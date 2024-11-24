@@ -19,6 +19,7 @@ from constants import (
     MAX_RANGE,
 )
 
+
 class Simulator:
 
     def __init__(self, model, display, window, fps=None):
@@ -43,7 +44,7 @@ class Simulator:
             else:
                 # For maximum speed, don't use clock timing at all
                 pygame.event.pump()  # Keep the event system running
-            
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
@@ -51,12 +52,12 @@ class Simulator:
                         self.model.handle_close_event()
                         self.quit()
                     break
-                
+
             t = self.current_timestamp
             self.current_timestamp = time()
             if t is not None:
                 self.calc_fps = calculate_fps(max(self.current_timestamp - t, 1))
-            
+
             keys_pressed = pygame.key.get_pressed()
             run = self.model.update_state(keys_pressed) and run
             self.update_display()
@@ -163,7 +164,9 @@ class GeneticGame:
 
 class PipeManager:
 
-    def __init__(self, width: int, height: int, starting_range: float, green: bool = True):
+    def __init__(
+        self, width: int, height: int, starting_range: float, green: bool = True
+    ):
         self.pipes: list[PipeSet] = []
         self.top_mask: pygame.mask.Mask = None
         self.bottom_mask: pygame.mask.Mask = None
@@ -209,26 +212,30 @@ class PipeManager:
         bird_x: int = bird.rect.x
         pipe: PipeSet = self.find_closest_pipe(bird_x)
         bird_mask: pygame.mask.Mask = pygame.mask.from_surface(bird.current_image)
-            
+
         # check mask
         offset = (bird.rect.x - pipe.upper_rect.x), (bird.rect.y - pipe.upper_rect.y)
         c_upper = self.top_mask.overlap(bird_mask, offset)
         offset = (bird.rect.x - pipe.lower_rect.x), (bird.rect.y - pipe.lower_rect.y)
         c_lower = self.bottom_mask.overlap(bird_mask, offset)
-        
+
         # Check for collisions
-        if (c_upper is not None or 
-            c_lower is not None or 
-            bird.rect.y >= GAME_HEIGHT or 
-            bird.rect.y <= 0):
+        if (
+            c_upper is not None
+            or c_lower is not None
+            or bird.rect.y >= GAME_HEIGHT
+            or bird.rect.y <= 0
+        ):
             return True
-            
+
         # Check if bird is between pipes and colliding with them
         if pipe.in_between(bird_x):
-            if (bird.rect.bottom > pipe.lower_rect.top or 
-                bird.rect.top < pipe.upper_rect.bottom):
+            if (
+                bird.rect.bottom > pipe.lower_rect.top
+                or bird.rect.top < pipe.upper_rect.bottom
+            ):
                 return True
-                
+
         return False
 
     def find_closest_pipe(self, bird_x: int) -> PipeSet | None:
@@ -289,29 +296,29 @@ class PipeSet:
         r: float = np.random.rand() * pipe_range
         r = (-r if np.random.rand() >= 0.4 else r) * (0.4 * GAME_HEIGHT)
         x: int = width
-        
+
         # Calculate initial positions
         center = 0.5 * GAME_HEIGHT
         top_pipe: float = center + r - (0.5 * HEIGHT_BETWEEN_PIPES)
         bottom_pipe: float = center + r + (0.5 * HEIGHT_BETWEEN_PIPES)
-        
+
         # Add bounds checking
         pipe_height = PIPE_HEIGHT  # Height of the pipe sprite
-        
+
         # Ensure top pipe isn't too high (leaving at least 10px from top)
         min_top = 10
         if top_pipe < min_top:
             offset = min_top - top_pipe
             top_pipe += offset
             bottom_pipe += offset
-        
+
         # Ensure bottom pipe isn't too low (leaving at least 10px from bottom)
         max_bottom = GAME_HEIGHT - 10
         if bottom_pipe > max_bottom:
             offset = bottom_pipe - max_bottom
             top_pipe -= offset
             bottom_pipe -= offset
-        
+
         return PipeSet(x, top_pipe, bottom_pipe)
 
 

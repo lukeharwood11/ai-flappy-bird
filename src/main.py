@@ -1,5 +1,6 @@
 from constants import SCREEN_SIZE, FPS
-from brain import UserFlappyBrain, FlappyBrain
+from genetic_brain import FlappyBrain
+from brain import UserFlappyBrain
 import simulator
 import argparse
 import pygame

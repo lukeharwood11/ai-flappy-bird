@@ -1,5 +1,6 @@
 import pygame
 
+
 def calculate_fps(time_elapsed: float) -> int:
     # convert to seconds (from milliseconds)
     t: float = time_elapsed

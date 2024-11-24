@@ -15,6 +15,7 @@ from constants import (
 if typing.TYPE_CHECKING:
     import simulator
 
+
 class CollisionSet:
 
     def __init__(self, mini_batch_size):
@@ -139,9 +140,12 @@ class FlappyFlock:
 
     def generate_flappy_birds(self):
         """Must generate genetic brains for the flock"""
-        brains: list[BaseGeneticBrain] = self._brain_type.generate_brains(self.size, 0.5, False)
+        brains: list[BaseGeneticBrain] = self._brain_type.generate_brains(
+            self.size, 0.5, False
+        )
         for brain in brains:
             self.flock.append(FlappyBird(brain))
+
 
 class FlappyBird:
 
@@ -164,7 +168,9 @@ class FlappyBird:
 
     @staticmethod
     def init_images():
-        up = pygame.image.load("./src/assets/sprites/yellowbird-upflap.png").convert_alpha()
+        up = pygame.image.load(
+            "./src/assets/sprites/yellowbird-upflap.png"
+        ).convert_alpha()
         mid = pygame.image.load(
             "./src/assets/sprites/yellowbird-midflap.png"
         ).convert_alpha()
